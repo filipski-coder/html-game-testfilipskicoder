@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SwitchCraft</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      background: #202020;
+      color: #eee;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 10px 0 0;
+      font-size: 20px;
+      text-align: center;
+    }
+
+    #info {
+      font-size: 12px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    canvas {
+      border: 2px solid #555;
+      background: #4da6ff; /* sky */
+      image-rendering: pixelated;
+      max-width: 100vw;
+      max-height: 70vh;
+    }
+  </style>
+</head>
+<body>
+  <h1>SwitchCraft (Mini)</h1>
+  <div id="info">
+    Move: WASD / Arrow keys<br />
+    Place block: Z &nbsp;|&nbsp; Remove block: X
+  </div>
+  <canvas id="game" width="320" height="240"></canvas>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const TILE = 16;
+    const WORLD_W = 20;
+    const WORLD_H = 15;
+
+    // 0 = air, 1 = dirt, 2 = grass
+    const world = [];
+    for (let y = 0; y < WORLD_H; y++) {
+      const row = [];
+      for (let x = 0; x < WORLD_W; x++) {
+        if (y > 9) row.push(1);        // dirt underground
+        else if (y === 9) row.push(2); // grass layer
+        else row.push(0);              // air
+      }
+      world.push(row);
+    }
+
+    const player = {
+      x: 5,
+      y: 8,
+      color: "#ffeb3b"
+    };
+
+    const keys = {};
+    window.addEventListener("keydown", (e) => {
+      keys[e.key.toLowerCase()] = true;
+      e.preventDefault();
+    });
+    window.addEventListener("keyup", (e) => {
+      keys[e.key.toLowerCase()] = false;
+      e.preventDefault();
+    });
+
+    function isSolid(x, y) {
+      if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return true;
+      return world[y][x] !== 0;
+    }
+
+    function tryMove(dx, dy) {
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+      if (!isSolid(nx, ny)) {
+        player.x = nx;
+        player.y = ny;
+      }
+    }
+
+    function placeBlock() {
+      const tx = player.x;
+      const ty = player.y + 1;
+      if (ty >= 0 && ty < WORLD_H && world[ty][tx] === 0) {
+        world[ty][tx] = 1;
+      }
+    }
+
+    function removeBlock() {
+      const tx = player.x;
+      const ty = player.y + 1;
+      if (ty >= 0 && ty < WORLD_H && world[ty][tx] !== 0) {
+        world[ty][tx] = 0;
+      }
+    }
+
+    function update() {
+      if (keys["arrowleft"] || keys["a"]) tryMove(-1, 0);
+      if (keys["arrowright"] || keys["d"]) tryMove(1, 0);
+      if (keys["arrowup"] || keys["w"]) tryMove(0, -1);
+      if (keys["arrowdown"] || keys["s"]) tryMove(0, 1);
+
+      if (keys["z"]) {
+        placeBlock();
+        keys["z"] = false;
+      }
+      if (keys["x"]) {
+        removeBlock();
+        keys["x"] = false;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // draw world
+      for (let y = 0; y < WORLD_H; y++) {
+        for (let x = 0; x < WORLD_W; x++) {
+          const tile = world[y][x];
+          if (tile === 1) ctx.fillStyle = "#8d6e63"; // dirt
+          else if (tile === 2) ctx.fillStyle = "#4caf50"; // grass
+          else continue;
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
+      }
+
+      // draw player
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x * TILE, player.y * TILE, TILE, TILE);
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
