@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>SwitchCraft</title>
+  <title>SwitchCraft Plus</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -13,68 +13,100 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      user-select: none;
     }
 
     h1 {
-      margin: 10px 0 0;
-      font-size: 20px;
+      margin: 8px 0 0;
+      font-size: 18px;
       text-align: center;
     }
 
     #info {
-      font-size: 12px;
-      margin-bottom: 8px;
+      font-size: 11px;
+      margin-bottom: 6px;
       text-align: center;
     }
 
     canvas {
       border: 2px solid #555;
-      background: #4da6ff; /* sky */
+      background: #4da6ff;
       image-rendering: pixelated;
-      max-width: 100vw;
-      max-height: 70vh;
+      width: 95vw;     /* fills most of the screen */
+      height: auto;    /* keeps aspect ratio */
+      max-height: 80vh;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <h1>SwitchCraft (Mini)</h1>
+  <h1>SwitchCraft Plus</h1>
   <div id="info">
-    Move: WASD / Arrow keys<br />
-    Place block: Z &nbsp;|&nbsp; Remove block: X
+    Move: WASD / Arrows &nbsp;|&nbsp;
+    Place: Z &nbsp; Remove: X &nbsp;|&nbsp;
+    Block: 1–4
   </div>
-  <canvas id="game" width="320" height="240"></canvas>
+  <canvas id="game" width="480" height="360"></canvas>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
     const TILE = 16;
-    const WORLD_W = 20;
-    const WORLD_H = 15;
+    const WORLD_W = 30;
+    const WORLD_H = 22;
 
-    // 0 = air, 1 = dirt, 2 = grass
+    // block IDs
+    const BLOCK_AIR   = 0;
+    const BLOCK_DIRT  = 1;
+    const BLOCK_GRASS = 2;
+    const BLOCK_STONE = 3;
+    const BLOCK_WOOD  = 4;
+
+    const BLOCKS = [
+      { id: BLOCK_AIR,   name: "Air",   color: null },
+      { id: BLOCK_DIRT,  name: "Dirt",  color: "#8d6e63" },
+      { id: BLOCK_GRASS, name: "Grass", color: "#4caf50" },
+      { id: BLOCK_STONE, name: "Stone", color: "#9e9e9e" },
+      { id: BLOCK_WOOD,  name: "Wood",  color: "#795548" }
+    ];
+
+    // world generation
     const world = [];
     for (let y = 0; y < WORLD_H; y++) {
       const row = [];
       for (let x = 0; x < WORLD_W; x++) {
-        if (y > 9) row.push(1);        // dirt underground
-        else if (y === 9) row.push(2); // grass layer
-        else row.push(0);              // air
+        if (y > 14) row.push(BLOCK_DIRT);
+        else if (y === 14) row.push(BLOCK_GRASS);
+        else if (y > 10 && Math.random() < 0.1) row.push(BLOCK_STONE);
+        else row.push(BLOCK_AIR);
       }
       world.push(row);
     }
 
     const player = {
       x: 5,
-      y: 8,
-      color: "#ffeb3b"
+      y: 10,
+      color: "#ffeb3b",
+      hearts: 5,
+      maxHearts: 5
     };
 
+    let selectedBlockIndex = 1;
     const keys = {};
+
     window.addEventListener("keydown", (e) => {
-      keys[e.key.toLowerCase()] = true;
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+
+      if (k === "1") selectedBlockIndex = 1;
+      if (k === "2") selectedBlockIndex = 2;
+      if (k === "3") selectedBlockIndex = 3;
+      if (k === "4") selectedBlockIndex = 4;
+
       e.preventDefault();
     });
+
     window.addEventListener("keyup", (e) => {
       keys[e.key.toLowerCase()] = false;
       e.preventDefault();
@@ -82,7 +114,7 @@
 
     function isSolid(x, y) {
       if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) return true;
-      return world[y][x] !== 0;
+      return world[y][x] !== BLOCK_AIR;
     }
 
     function tryMove(dx, dy) {
@@ -95,18 +127,21 @@
     }
 
     function placeBlock() {
+      const block = BLOCKS[selectedBlockIndex];
+      if (!block || block.id === BLOCK_AIR) return;
+
       const tx = player.x;
       const ty = player.y + 1;
-      if (ty >= 0 && ty < WORLD_H && world[ty][tx] === 0) {
-        world[ty][tx] = 1;
+      if (ty >= 0 && ty < WORLD_H && world[ty][tx] === BLOCK_AIR) {
+        world[ty][tx] = block.id;
       }
     }
 
     function removeBlock() {
       const tx = player.x;
       const ty = player.y + 1;
-      if (ty >= 0 && ty < WORLD_H && world[ty][tx] !== 0) {
-        world[ty][tx] = 0;
+      if (ty >= 0 && ty < WORLD_H && world[ty][tx] !== BLOCK_AIR) {
+        world[ty][tx] = BLOCK_AIR;
       }
     }
 
@@ -126,32 +161,38 @@
       }
     }
 
+    function drawHearts() {
+      for (let i = 0; i < player.maxHearts; i++) {
+        ctx.fillStyle = i < player.hearts ? "#ff4444" : "#552222";
+        ctx.fillRect(4 + i * 12, 4, 10, 10);
+      }
+    }
+
+    function drawHotbar() {
+      const barY = canvas.height - 20;
+      for (let i = 1; i <= 4; i++) {
+        const block = BLOCKS[i];
+        const x = 10 + (i - 1) * 40;
+
+        ctx.strokeStyle = i === selectedBlockIndex ? "#ffff00" : "#ffffff";
+        ctx.strokeRect(x, barY, 32, 16);
+
+        ctx.fillStyle = block.color;
+        ctx.fillRect(x + 4, barY + 4, 24, 8);
+      }
+    }
+
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // draw world
       for (let y = 0; y < WORLD_H; y++) {
         for (let x = 0; x < WORLD_W; x++) {
           const tile = world[y][x];
-          if (tile === 1) ctx.fillStyle = "#8d6e63"; // dirt
-          else if (tile === 2) ctx.fillStyle = "#4caf50"; // grass
-          else continue;
-          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+          if (tile !== BLOCK_AIR) {
+            ctx.fillStyle = BLOCKS[tile].color;
+            ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+          }
         }
       }
 
-      // draw player
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x * TILE, player.y * TILE, TILE, TILE);
-    }
-
-    function loop() {
-      update();
-      draw();
-      requestAnimationFrame(loop);
-    }
-
-    loop();
-  </script>
-</body>
-</html>
+      ctx.fillStyle = player.color
